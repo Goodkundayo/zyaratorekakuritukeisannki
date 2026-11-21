@@ -1,0 +1,2146 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>サブステータス発生確率計算機 ver.2.0</title>
+  <style>
+    /* =====================================================================
+       ダークモード デザイントークン（外部CDN不使用・単一ファイル完結）
+       ===================================================================== */
+    :root {
+      --bg-app: #080c14;
+      --bg-card: #101726;
+      --bg-surface: #0b101c;
+      --bg-input: #060911;
+      --bg-hover: #1b263b;
+      --border-subtle: #223047;
+      --border-strong: #394d6e;
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --accent-blue: #38bdf8;
+      --accent-cyan: #59f3fc;
+      --accent-cyan-bg: rgba(89, 243, 252, 0.12);
+      --accent-cyan-border: rgba(89, 243, 252, 0.42);
+      --warning-text: #ff7b72;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html,
+    body {
+      background-color: var(--bg-app);
+      color: var(--text-primary);
+      font-family: "Inter", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", system-ui, -apple-system, sans-serif;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .page-container {
+      width: 100%;
+      max-width: 1380px;
+      margin: 0 auto;
+      padding: 0.95rem 0.75rem 3.5rem;
+    }
+
+    @media (min-width: 640px) {
+      .page-container {
+        padding: 1.4rem 1.25rem 4rem;
+      }
+    }
+
+    .panel-card {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 1rem;
+      padding: 1rem;
+      margin-bottom: 1.2rem;
+      box-shadow: 0 14px 34px -12px rgba(0, 0, 0, 0.72);
+      position: relative;
+      overflow: visible;
+    }
+
+    @media (min-width: 640px) {
+      .panel-card {
+        padding: 1.3rem;
+      }
+    }
+
+    /* 数値入力欄（iOSでもダークモードを維持・step=0.01・min=0） */
+    input[type="number"] {
+      background-color: var(--bg-input);
+      color: var(--text-primary);
+      border: 1px solid var(--border-subtle);
+      border-radius: 0.55rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.88rem;
+      padding: 0.48rem 0.65rem;
+      min-height: 38px;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+    }
+
+    input[type="number"]:hover {
+      border-color: var(--border-strong);
+    }
+
+    input[type="number"]:focus {
+      outline: none;
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 0 2px rgba(89, 243, 252, 0.22);
+    }
+
+    /* =====================================================================
+       オリジナルHTML/CSS/JSカスタムドロップダウン（ネイティブ <select> ゼロ）
+       ===================================================================== */
+    .custom-select {
+      position: relative;
+      width: 100%;
+      user-select: none;
+    }
+
+    .custom-select.is-open {
+      z-index: 95;
+    }
+
+    .custom-select-trigger {
+      width: 100%;
+      min-height: 40px;
+      background-color: var(--bg-input);
+      color: var(--text-primary);
+      border: 1px solid var(--border-subtle);
+      border-radius: 0.55rem;
+      padding: 0.45rem 0.65rem;
+      font-family: inherit;
+      font-size: 0.84rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.45rem;
+      cursor: pointer;
+      text-align: left;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+    }
+
+    .custom-select-trigger:hover {
+      border-color: var(--accent-blue);
+      background-color: #0d1526;
+    }
+
+    .custom-select.is-open .custom-select-trigger,
+    .custom-select-trigger:focus-visible {
+      outline: none;
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 0 2px rgba(89, 243, 252, 0.24);
+    }
+
+    .custom-select-text {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .custom-select-caret {
+      font-size: 0.72rem;
+      color: var(--accent-cyan);
+      flex-shrink: 0;
+      transition: transform 0.15s ease;
+    }
+
+    .custom-select.is-open .custom-select-caret {
+      transform: rotate(180deg);
+    }
+
+    .custom-select-menu {
+      position: absolute;
+      top: calc(100% + 0.3rem);
+      left: 0;
+      right: 0;
+      min-width: 100%;
+      max-height: 245px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      background-color: #050911;
+      border: 1px solid var(--accent-cyan);
+      border-radius: 0.65rem;
+      padding: 0.3rem;
+      box-shadow: 0 22px 48px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(89, 243, 252, 0.15);
+      z-index: 150;
+    }
+
+    .custom-select-option {
+      width: 100%;
+      min-height: 38px;
+      padding: 0.45rem 0.65rem;
+      border: none;
+      border-radius: 0.45rem;
+      background-color: transparent;
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 0.84rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      text-align: left;
+      cursor: pointer;
+      transition: background-color 0.12s ease, color 0.12s ease;
+    }
+
+    .custom-select-option:hover,
+    .custom-select-option:focus-visible {
+      outline: none;
+      background-color: var(--bg-hover);
+      color: var(--accent-cyan);
+    }
+
+    .custom-select-option.is-selected {
+      background-color: var(--accent-cyan-bg);
+      color: var(--accent-cyan);
+      font-weight: 700;
+    }
+
+    .custom-select-check {
+      font-size: 0.78rem;
+      color: var(--accent-cyan);
+      flex-shrink: 0;
+    }
+
+    /* =====================================================================
+       ヘッダー・モード切替タブ
+       ===================================================================== */
+    .header-top {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    @media (min-width: 640px) {
+      .header-top {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+      }
+    }
+
+    .header-kicker {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--accent-cyan);
+      text-transform: uppercase;
+    }
+
+    .header-title {
+      font-size: 1.32rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-top: 0.15rem;
+    }
+
+    @media (min-width: 640px) {
+      .header-title {
+        font-size: 1.55rem;
+      }
+    }
+
+    .floor-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 0.65rem;
+      padding: 0.42rem 0.75rem;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      align-self: flex-start;
+    }
+
+    .floor-pill code {
+      color: var(--accent-cyan);
+      font-weight: 700;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    .header-summary {
+      margin-top: 0.65rem;
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+    }
+
+    .header-warning {
+      display: inline-block;
+      margin-top: 0.35rem;
+      color: var(--warning-text);
+      font-weight: 700;
+    }
+
+    .mode-toggle-group {
+      margin-top: 1.05rem;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.5rem;
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 0.75rem;
+      padding: 0.35rem;
+    }
+
+    .mode-toggle-btn {
+      min-height: 42px;
+      border: none;
+      border-radius: 0.55rem;
+      padding: 0.6rem 0.85rem;
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 700;
+      background-color: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .mode-toggle-btn:hover {
+      background-color: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .mode-toggle-btn.is-active {
+      background-color: var(--accent-cyan);
+      color: #06101b;
+      box-shadow: 0 2px 16px rgba(89, 243, 252, 0.3);
+    }
+
+    /* =====================================================================
+       簡易版（Simple Mode）
+       ===================================================================== */
+    .panel-head {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      margin-bottom: 0.95rem;
+    }
+
+    @media (min-width: 640px) {
+      .panel-head {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+      }
+    }
+
+    .panel-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .panel-caption {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+
+    .simple-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0.95rem;
+    }
+
+    @media (min-width: 768px) {
+      .simple-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .simple-field-card {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 0.8rem;
+      padding: 0.9rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+    }
+
+    .simple-label {
+      font-size: 0.86rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .simple-hint {
+      font-size: 0.73rem;
+      color: var(--text-secondary);
+    }
+
+    .simple-input {
+      width: 100%;
+      font-size: 1rem;
+      padding: 0.55rem 0.75rem;
+    }
+
+    .simple-combo-bar {
+      margin-top: 1rem;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .combo-check-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.55rem;
+      min-height: 42px;
+      padding: 0.5rem 0.95rem;
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 0.65rem;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      cursor: pointer;
+      user-select: none;
+      transition: border-color 0.15s ease, background-color 0.15s ease;
+    }
+
+    .combo-check-label:hover {
+      border-color: var(--accent-cyan-border);
+      background-color: var(--bg-hover);
+    }
+
+    .combo-check-label input[type="checkbox"] {
+      width: 1.1rem;
+      height: 1.1rem;
+      accent-color: var(--accent-cyan);
+      cursor: pointer;
+    }
+
+    .simple-result-box {
+      margin-top: 1rem;
+      background-color: var(--bg-surface);
+      border: 1px solid var(--accent-cyan-border);
+      border-radius: 0.85rem;
+      padding: 1rem 1.1rem;
+    }
+
+    .simple-base-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+
+    .simple-base-label {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+    }
+
+    .simple-base-value {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 1.65rem;
+      font-weight: 700;
+      color: var(--accent-cyan);
+    }
+
+    .simple-decay-section {
+      margin-top: 0.85rem;
+      padding-top: 0.8rem;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .simple-decay-heading {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+    }
+
+    .simple-decay-cards {
+      margin-top: 0.55rem;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.6rem;
+    }
+
+    @media (max-width: 480px) {
+      .simple-decay-cards {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .decay-card {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 0.65rem;
+      padding: 0.65rem 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+
+    .decay-card-title {
+      font-size: 0.73rem;
+      color: var(--text-secondary);
+    }
+
+    .decay-card-val {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 1.06rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .decay-card.is-hit1 .decay-card-val {
+      color: var(--accent-cyan);
+    }
+
+    /* =====================================================================
+       高度版（Advanced Mode）：固定6行×6列テーブル
+       ===================================================================== */
+    .table-scroll-container {
+      width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      border: 1px solid var(--border-subtle);
+      border-radius: 0.75rem;
+      background-color: var(--bg-surface);
+    }
+
+    table.matrix-table {
+      width: 100%;
+      min-width: 1140px;
+      border-collapse: collapse;
+      table-layout: fixed;
+      text-align: left;
+      font-size: 0.85rem;
+    }
+
+    table.matrix-table thead tr {
+      background-color: #050911;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    table.matrix-table th {
+      padding: 0.75rem 0.8rem;
+      font-size: 0.77rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      white-space: nowrap;
+    }
+
+    table.matrix-table th:nth-child(1) { width: 90px; }
+    table.matrix-table th:nth-child(2) { width: 138px; }
+    table.matrix-table th:nth-child(3) { width: 138px; }
+    table.matrix-table th:nth-child(4) { width: 256px; }
+    table.matrix-table th:nth-child(5) { width: 288px; }
+    table.matrix-table th:nth-child(6) { width: 230px; }
+
+    table.matrix-table tbody tr {
+      border-bottom: 1px solid var(--border-subtle);
+      vertical-align: top;
+      transition: background-color 0.12s ease;
+    }
+
+    table.matrix-table tbody tr:last-child {
+      border-bottom: none;
+    }
+
+    table.matrix-table tbody tr:hover {
+      background-color: rgba(27, 38, 59, 0.55);
+    }
+
+    table.matrix-table td {
+      padding: 0.72rem 0.8rem;
+      word-break: break-word;
+    }
+
+    .stat-name-cell {
+      font-weight: 700;
+      color: var(--text-primary);
+      white-space: nowrap;
+    }
+
+    .col-input {
+      width: 100%;
+      max-width: 120px;
+      background-color: var(--bg-input);
+      color: var(--text-primary);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .total-stat-val {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .total-stat-val.is-ignore {
+      color: var(--accent-blue);
+    }
+
+    .calc-equation {
+      margin-top: 0.24rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.72rem;
+      color: var(--text-primary);
+    }
+
+    .calc-lines {
+      margin-top: 0.22rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.12rem;
+      font-size: 0.69rem;
+      color: var(--text-secondary);
+      line-height: 1.35;
+    }
+
+    .crown-avg-banner {
+      margin-top: 0.28rem;
+      padding: 0.28rem 0.48rem;
+      border-radius: 0.42rem;
+      background-color: var(--accent-cyan-bg);
+      border: 1px solid var(--accent-cyan-border);
+      color: var(--accent-cyan);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.68rem;
+      font-weight: 600;
+      line-height: 1.38;
+    }
+
+    .prob-primary {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 1.02rem;
+      font-weight: 700;
+      color: var(--accent-cyan);
+    }
+
+    .combo-sub-lines {
+      margin-top: 0.26rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.1rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.71rem;
+      color: var(--text-secondary);
+    }
+
+    .owl-stack-list {
+      margin-top: 0.24rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.14rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.71rem;
+      color: var(--text-primary);
+    }
+
+    .owl-stack-list span {
+      color: var(--accent-cyan);
+      font-weight: 700;
+    }
+
+    /* =====================================================================
+       神器スロット（自分3スロット / 相手3スロット）
+       ===================================================================== */
+    .artifact-slots-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0.95rem;
+    }
+
+    @media (min-width: 900px) {
+      .artifact-slots-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    .artifact-slot-card {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 0.85rem;
+      padding: 0.95rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+      position: relative;
+      overflow: visible;
+    }
+
+    .slot-header-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .slot-title {
+      font-size: 0.84rem;
+      font-weight: 700;
+      color: var(--accent-cyan);
+    }
+
+    .slot-lv-tag {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 0.4rem;
+      padding: 0.14rem 0.5rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.72rem;
+      color: var(--text-primary);
+    }
+
+    .slot-controls-row {
+      display: grid;
+      grid-template-columns: 1fr 116px;
+      gap: 0.55rem;
+      align-items: start;
+    }
+
+    .control-col {
+      display: flex;
+      flex-direction: column;
+      gap: 0.26rem;
+      position: relative;
+    }
+
+    .control-label {
+      font-size: 0.71rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .control-col input[type="number"] {
+      width: 100%;
+    }
+
+    /* 闇の結晶 / 近衛兵の鎧 選択時のみスロット内に表示される動的パネル */
+    .slot-dynamic-panel {
+      background-color: var(--bg-card);
+      border: 1px solid var(--accent-cyan-border);
+      border-radius: 0.65rem;
+      padding: 0.7rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+    }
+
+    .slot-dynamic-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0.55rem;
+    }
+
+    @media (min-width: 480px) {
+      .slot-dynamic-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .slot-effect-badge {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.45rem;
+      background-color: var(--accent-cyan-bg);
+      border: 1px solid var(--accent-cyan-border);
+      border-radius: 0.55rem;
+      padding: 0.45rem 0.65rem;
+      font-size: 0.73rem;
+      color: var(--text-primary);
+    }
+
+    .slot-effect-badge strong {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      color: var(--accent-cyan);
+      white-space: nowrap;
+    }
+
+    .slot-detail-text {
+      font-size: 0.73rem;
+      color: var(--text-secondary);
+      line-height: 1.45;
+    }
+
+    .spec-card {
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+      line-height: 1.65;
+    }
+
+    .spec-card h3 {
+      font-size: 0.85rem;
+      color: var(--text-primary);
+      margin-bottom: 0.35rem;
+    }
+
+    .spec-card code {
+      color: var(--accent-cyan);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="page-container">
+    <!-- ヘッダーとモード切替 -->
+    <header class="panel-card">
+      <div class="header-top">
+        <div>
+          <p class="header-kicker">Sub-Status Probability Calculator ver.2.0</p>
+          <h1 class="header-title">サブステータス発生確率計算機 ver.2.0</h1>
+        </div>
+        <div class="floor-pill">
+          発生確率下限: <code>0.00%</code>（100%超え上限なし）
+        </div>
+      </div>
+
+      <p class="header-summary">
+        「簡易版」と「高度版」を切り替えられるサブステータス発生確率計算機 ver.2.0 です。ネイティブ &lt;select&gt; を一切使わない独自ドロップダウンと、6行×6列テーブル・自分/相手神器（Lv.1〜Lv.20）に対応しています。<br>
+        <span class="header-warning">この確率計算機は信憑性がありません。そのためこの計算機で算出された確率を鵜吞みにはせず、参考程度にとどめてください。</span>
+      </p>
+
+      <div class="mode-toggle-group" role="tablist" aria-label="モード切替">
+        <button
+          id="btn-mode-simple"
+          type="button"
+          role="tab"
+          aria-selected="false"
+          class="mode-toggle-btn"
+          onclick="switchMode('simple')"
+        >
+          簡易版
+        </button>
+        <button
+          id="btn-mode-advanced"
+          type="button"
+          role="tab"
+          aria-selected="true"
+          class="mode-toggle-btn is-active"
+          onclick="switchMode('advanced')"
+        >
+          高度版
+        </button>
+      </div>
+    </header>
+
+    <!-- ===================================================================== -->
+    <!-- 1. 簡易版（Simple Mode）                                              -->
+    <!-- ===================================================================== -->
+    <section id="section-simple" class="hidden">
+      <div class="panel-card">
+        <div class="panel-head">
+          <h2 class="panel-title">簡易版（発生確率・連撃減衰計算）</h2>
+          <span class="panel-caption">X = (自分のサブステ - 相手の無視ステ) / 100</span>
+        </div>
+
+        <div class="simple-grid">
+          <div class="simple-field-card">
+            <label for="simple-input-self" class="simple-label">自分のサブステ (%)</label>
+            <span class="simple-hint">自分のサブステ値を入力（0.01刻み・0以上）</span>
+            <input
+              id="simple-input-self"
+              type="number"
+              step="0.01"
+              min="0"
+              value="0"
+              class="simple-input"
+              oninput="updateSimpleCalc()"
+            />
+          </div>
+
+          <div class="simple-field-card">
+            <label for="simple-input-opp" class="simple-label">相手の無視ステ (%)</label>
+            <span class="simple-hint">相手の無視ステ値を入力（0.01刻み・0以上）</span>
+            <input
+              id="simple-input-opp"
+              type="number"
+              step="0.01"
+              min="0"
+              value="0"
+              class="simple-input"
+              oninput="updateSimpleCalc()"
+            />
+          </div>
+        </div>
+
+        <div class="simple-combo-bar">
+          <label for="simple-checkbox-combo" class="combo-check-label">
+            <input
+              id="simple-checkbox-combo"
+              type="checkbox"
+              onchange="toggleSimpleCombo(this.checked)"
+            />
+            <span>連撃</span>
+          </label>
+        </div>
+
+        <div class="simple-result-box">
+          <div class="simple-base-row">
+            <span class="simple-base-label">発生確率</span>
+            <span id="simple-out-prob" class="simple-base-value">0.00%</span>
+          </div>
+
+          <div id="simple-decay-wrap" class="simple-decay-section hidden">
+            <p class="simple-decay-heading">連撃 1回目 / 2回目 / 3回目 減衰発生確率 ((2/3)^(n-1))</p>
+            <div class="simple-decay-cards">
+              <div class="decay-card is-hit1">
+                <span class="decay-card-title">連撃 1回目 ((2/3)^0)</span>
+                <span id="simple-out-hit1" class="decay-card-val">0.00%</span>
+              </div>
+              <div class="decay-card">
+                <span class="decay-card-title">連撃 2回目 ((2/3)^1)</span>
+                <span id="simple-out-hit2" class="decay-card-val">0.00%</span>
+              </div>
+              <div class="decay-card">
+                <span class="decay-card-title">連撃 3回目 ((2/3)^2)</span>
+                <span id="simple-out-hit3" class="decay-card-val">0.00%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-card spec-card">
+        <h3>簡易版の計算仕様</h3>
+        <p>• 基準値 <code>X = (自分のサブステ - 相手の無視ステ) / 100</code></p>
+        <p>• サブステ <code>&lt;= 50%</code> の場合：<code>Prob = X × 100</code>、<code>&gt; 50%</code> の場合：<code>Prob = (1.055 - (1 / (3.6 × X))) × 100</code>（最低 <code>0.00%</code>、100%超え上限なし）</p>
+        <p>• 「連撃」チェック時：最大3回（1回目・2回目・3回目）まで <code>Prob × (2/3)^(n-1)</code> で算出</p>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- 2. 高度版（Advanced Mode）                                            -->
+    <!-- ===================================================================== -->
+    <section id="section-advanced">
+      <!-- 固定6行×6列テーブル（横スクロール対応） -->
+      <div class="panel-card">
+        <div class="panel-head">
+          <h2 class="panel-title">ステータス計算テーブル（固定6行×6列）</h2>
+          <span class="panel-caption">吸血・反撃・連撃・回避・会心・目眩（小画面は横スクロール対応）</span>
+        </div>
+
+        <div class="table-scroll-container">
+          <table class="matrix-table">
+            <thead>
+              <tr>
+                <th>ステータス</th>
+                <th>自分のサブステ (%)</th>
+                <th>相手の無視ステ (%)</th>
+                <th>合計サブステ (%)</th>
+                <th>合計無視ステ (%)</th>
+                <th>発生確率</th>
+              </tr>
+            </thead>
+            <tbody id="matrix-tbody">
+              <!-- JSで6行を生成 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 自分の神器（3スロット） -->
+      <div class="panel-card">
+        <div class="panel-head">
+          <h2 class="panel-title">自分の神器（3スロット）</h2>
+          <span class="panel-caption">なし・闇の結晶・近衛兵の鎧・獣人の鱗・古の秘薬・冒険王のマント・風斬り・梟の彫刻（Lv.1〜Lv.20）</span>
+        </div>
+        <div id="self-artifacts-grid" class="artifact-slots-grid">
+          <!-- JSで自分3スロットを生成 -->
+        </div>
+      </div>
+
+      <!-- 相手の神器（3スロット） -->
+      <div class="panel-card">
+        <div class="panel-head">
+          <h2 class="panel-title">相手の神器（3スロット）</h2>
+          <span class="panel-caption">なし・闇の結晶・近衛兵の鎧・ペロキャン・茨の冠（Lv.1〜Lv.20）</span>
+        </div>
+        <div id="opp-artifacts-grid" class="artifact-slots-grid">
+          <!-- JSで相手3スロットを生成 -->
+        </div>
+      </div>
+
+      <div class="panel-card spec-card">
+        <h3>高度版の計算ルール</h3>
+        <p>• <strong>基本確率式</strong>：<code>X = (自分のサブステ - 相手の無視ステ) / 100</code>。サブステ <code>&lt;= 50%</code> は <code>X × 100</code>、<code>&gt; 50%</code> は <code>(1.055 - (1 / (3.6 × X))) × 100</code>（最低 <code>0.00%</code>、100%超え上限なし）。連撃は最大3回まで <code>(2/3)^(n-1)</code> 減衰。</p>
+        <p>• <strong>闇の結晶</strong>：倍率 <code>105% + 5% × (Lv - 1)</code> を掛けた <code>剣のステータス × 倍率</code> を選択サブステ（相手は「〜無視」）に加算します。</p>
+        <p>• <strong>近衛兵の鎧</strong>：倍率 <code>65% + 5% × (Lv - 1)</code> を掛けた <code>盾のステータス × 倍率</code> を選択サブステ（相手は「〜無視」）に加算します。</p>
+        <p>• <strong>獣人の鱗</strong>：最も高いサブステに Lv.1〜13 は <code>12.0% + 0.5% × (Lv - 1)</code>、Lv.14〜20 は <code>18.0% + 1.0% × (Lv - 13)</code> を加算します。</p>
+        <p>• <strong>古の秘薬</strong>：反撃を連撃に転換し、さらに連撃に <code>+(10.0 + 1.0 × (Lv - 1))%</code> を加算します。</p>
+        <p>• <strong>風斬り</strong>：Lv.1で <code>10.0%</code>、1レベルごとに <code>+0.8%</code>（最大Lv.20で <code>25.2%</code>）。</p>
+        <p>• <strong>梟の彫刻（自分）</strong>：スタック値（Lv.1〜18: <code>3.0% + 0.1% × (Lv - 1)</code>、Lv.19: <code>4.8%</code>、Lv.20: <code>5.0%</code>）をスロットで0〜5スタック選択でき、選択スタック分の値を吸血に加算しつつ吸血行に0〜5スタックの発生確率を表示します。</p>
+        <p>• <strong>ペロキャン（相手）</strong>：会心無視・連撃無視・目眩無視にそれぞれ <code>+(6.0 + 0.5 × (Lv - 1))%</code> を加算します。</p>
+        <p>• <strong>茨の冠（相手）</strong>：全6無視ステに <code>+(15.0 + 1.0 × (Lv - 1))%</code>（Lv.1=+15%、Lv.20=+34%）を加算したうえで、6つの無視ステ合計を6で割った値（<code>6種合計 ÷ 6</code>）を各無視ステに均等配当します。</p>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    /**
+     * =====================================================================
+     * ステータス定義と神器カタログ
+     * =====================================================================
+     */
+    const STATS_LIST = [
+      { key: 'vampire', label: '吸血', ignoreLabel: '吸血無視' },
+      { key: 'counter', label: '反撃', ignoreLabel: '反撃無視' },
+      { key: 'combo', label: '連撃', ignoreLabel: '連撃無視' },
+      { key: 'evade', label: '回避', ignoreLabel: '回避無視' },
+      { key: 'crit', label: '会心', ignoreLabel: '会心無視' },
+      { key: 'daze', label: '目眩', ignoreLabel: '目眩無視' },
+    ];
+
+    const SELF_ARTIFACTS = [
+      { id: 'none', name: 'なし' },
+      { id: 'dark_crystal', name: '闇の結晶' },
+      { id: 'guardsman_armor', name: '近衛兵の鎧' },
+      { id: 'beastman_scale', name: '獣人の鱗' },
+      { id: 'ancient_elixir', name: '古の秘薬' },
+      { id: 'adventurer_cape', name: '冒険王のマント' },
+      { id: 'wind_slash', name: '風斬り' },
+      { id: 'owl_carving', name: '梟の彫刻' },
+    ];
+
+    const OPP_ARTIFACTS = [
+      { id: 'none', name: 'なし' },
+      { id: 'dark_crystal', name: '闇の結晶' },
+      { id: 'guardsman_armor', name: '近衛兵の鎧' },
+      { id: 'perocan', name: 'ペロキャン' },
+      { id: 'thorn_crown', name: '茨の冠' },
+    ];
+
+    const LEVEL_OPTIONS = Array.from({ length: 20 }, (_, i) => ({
+      value: String(i + 1),
+      label: `Lv.${i + 1}`,
+    }));
+
+    const STACK_OPTIONS = Array.from({ length: 6 }, (_, i) => ({
+      value: String(i),
+      label: `${i}スタック`,
+    }));
+
+    const SELF_TARGET_OPTIONS = STATS_LIST.map((s) => ({
+      value: s.key,
+      label: s.label,
+    }));
+
+    const OPP_IGNORE_TARGET_OPTIONS = STATS_LIST.map((s) => ({
+      value: s.key,
+      label: s.ignoreLabel,
+    }));
+
+    /**
+     * =====================================================================
+     * アプリケーション状態管理
+     * =====================================================================
+     */
+    function createInitialSlot(defaultTarget) {
+      return {
+        artifactId: 'none',
+        level: 1,
+        targetStat: defaultTarget,
+        swordStat: 0,
+        shieldStat: 0,
+        owlStack: 0,
+      };
+    }
+
+    const appState = {
+      mode: 'advanced',
+      simple: {
+        selfSub: 0,
+        oppIgnore: 0,
+        combo: false,
+      },
+      rows: {
+        vampire: { selfSub: 0, oppIgnore: 0 },
+        counter: { selfSub: 0, oppIgnore: 0 },
+        combo: { selfSub: 0, oppIgnore: 0 },
+        evade: { selfSub: 0, oppIgnore: 0 },
+        crit: { selfSub: 0, oppIgnore: 0 },
+        daze: { selfSub: 0, oppIgnore: 0 },
+      },
+      selfSlots: [
+        createInitialSlot('crit'),
+        createInitialSlot('evade'),
+        createInitialSlot('vampire'),
+      ],
+      oppSlots: [
+        createInitialSlot('crit'),
+        createInitialSlot('evade'),
+        createInitialSlot('vampire'),
+      ],
+    };
+
+    const customSelectStore = new Map();
+
+    /**
+     * =====================================================================
+     * 数値・クランプ・確率計算式
+     * =====================================================================
+     */
+    function clampNonNegative(v) {
+      const n = parseFloat(v);
+      if (!Number.isFinite(n) || n < 0) return 0;
+      return n;
+    }
+
+    function clampLv(lv) {
+      const n = parseInt(lv, 10);
+      if (!Number.isFinite(n)) return 1;
+      return Math.max(1, Math.min(20, n));
+    }
+
+    function clampStack(stk) {
+      const n = parseInt(stk, 10);
+      if (!Number.isFinite(n)) return 0;
+      return Math.max(0, Math.min(5, n));
+    }
+
+    function clampZeroFloor(val) {
+      if (!Number.isFinite(val) || val <= 0) return 0;
+      return Math.max(0, val);
+    }
+
+    /**
+     * 基本確率計算式:
+     * X = (自分のサブステ - 相手の無視ステ) / 100
+     * Sub <= 50: Prob = X * 100
+     * Sub > 50:  Prob = (1.055 - (1 / (3.6 * X))) * 100
+     * 最低 0.00%、100%超え上限なし
+     */
+    function calcProbabilityPct(selfSubPct, oppIgnorePct) {
+      const sub = Number.isFinite(selfSubPct) ? selfSubPct : 0;
+      const ign = Number.isFinite(oppIgnorePct) ? oppIgnorePct : 0;
+      const x = (sub - ign) / 100;
+
+      if (!Number.isFinite(x) || x <= 0) {
+        return 0;
+      }
+
+      let rawProb = 0;
+      if (sub <= 50) {
+        rawProb = x * 100;
+      } else {
+        const denom = 3.6 * x;
+        rawProb = denom > 0 ? (1.055 - (1 / denom)) * 100 : 0;
+      }
+
+      return clampZeroFloor(rawProb);
+    }
+
+    /**
+     * 連撃減衰: n = 1, 2, 3（最大3回）、(2/3)^(n-1)
+     */
+    function calcComboHitProb(baseProbPct, hitNumber) {
+      const n = Math.max(1, Math.min(3, parseInt(hitNumber, 10) || 1));
+      const factor = Math.pow(2 / 3, n - 1);
+      return clampZeroFloor(baseProbPct * factor);
+    }
+
+    function formatPct(val) {
+      return `${clampZeroFloor(val).toFixed(2)}%`;
+    }
+
+    function formatSigned(val) {
+      const n = Number.isFinite(val) ? val : 0;
+      const sign = n >= 0 ? '+' : '';
+      return `${sign}${n.toFixed(2)}%`;
+    }
+
+    function statLabelByKey(key) {
+      const item = STATS_LIST.find((s) => s.key === key);
+      return item ? item.label : key;
+    }
+
+    function ignoreLabelByKey(key) {
+      const item = STATS_LIST.find((s) => s.key === key);
+      return item ? item.ignoreLabel : key;
+    }
+
+    function artifactNameById(list, id) {
+      const item = list.find((a) => a.id === id);
+      return item ? item.name : 'なし';
+    }
+
+    /**
+     * =====================================================================
+     * カスタムHTML/CSS/JSドロップダウン（ネイティブ <select> ゼロ・イベント委譲）
+     * =====================================================================
+     */
+    function closeAllCustomSelects(keepId = null) {
+      document.querySelectorAll('.custom-select.is-open').forEach((el) => {
+        if (keepId && el.dataset.selectId === keepId) return;
+        el.classList.remove('is-open');
+        const menu = el.querySelector('.custom-select-menu');
+        const trigger = el.querySelector('.custom-select-trigger');
+        if (menu) menu.classList.add('hidden');
+        if (trigger) trigger.setAttribute('aria-expanded', 'false');
+      });
+    }
+
+    function buildCustomSelectHtml({ id, ariaLabel, options, value }) {
+      const valStr = String(value);
+      const current = options.find((o) => String(o.value) === valStr) || options[0];
+      const currentLabel = current ? current.label : '';
+
+      const optionsHtml = options
+        .map((opt) => {
+          const selected = String(opt.value) === valStr;
+          const attrVal = String(opt.value).replace(/"/g, '&quot;');
+          return `
+            <button
+              type="button"
+              role="option"
+              aria-selected="${selected ? 'true' : 'false'}"
+              class="custom-select-option ${selected ? 'is-selected' : ''}"
+              data-select-id="${id}"
+              data-value="${attrVal}"
+            >
+              <span>${opt.label}</span>
+              <span class="custom-select-check">${selected ? '✓' : ''}</span>
+            </button>
+          `;
+        })
+        .join('');
+
+      return `
+        <div id="${id}" class="custom-select" data-select-id="${id}">
+          <button
+            type="button"
+            class="custom-select-trigger"
+            aria-label="${ariaLabel}"
+            aria-expanded="false"
+            aria-haspopup="listbox"
+            data-select-id="${id}"
+          >
+            <span id="${id}-label" class="custom-select-text">${currentLabel}</span>
+            <span class="custom-select-caret" aria-hidden="true">▼</span>
+          </button>
+          <div id="${id}-menu" class="custom-select-menu hidden" role="listbox">
+            ${optionsHtml}
+          </div>
+        </div>
+      `;
+    }
+
+    function registerCustomSelect(id, options, initialValue, onChange) {
+      customSelectStore.set(id, {
+        options,
+        value: String(initialValue),
+        onChange,
+      });
+    }
+
+    function syncCustomSelect(id, nextValue) {
+      const entry = customSelectStore.get(id);
+      if (!entry) return;
+      entry.value = String(nextValue);
+
+      const labelEl = document.getElementById(`${id}-label`);
+      const current = entry.options.find((o) => String(o.value) === entry.value) || entry.options[0];
+      if (labelEl && current) {
+        labelEl.textContent = current.label;
+      }
+
+      const menuEl = document.getElementById(`${id}-menu`);
+      if (menuEl) {
+        menuEl.querySelectorAll('.custom-select-option').forEach((btn) => {
+          const isMatch = String(btn.dataset.value) === entry.value;
+          btn.classList.toggle('is-selected', isMatch);
+          btn.setAttribute('aria-selected', isMatch ? 'true' : 'false');
+          const chk = btn.querySelector('.custom-select-check');
+          if (chk) chk.textContent = isMatch ? '✓' : '';
+        });
+      }
+    }
+
+    function toggleCustomSelect(id) {
+      const wrap = document.getElementById(id);
+      const menu = document.getElementById(`${id}-menu`);
+      const trigger = wrap ? wrap.querySelector('.custom-select-trigger') : null;
+      if (!wrap || !menu) return;
+
+      const willOpen = menu.classList.contains('hidden');
+      closeAllCustomSelects(id);
+
+      if (willOpen) {
+        menu.classList.remove('hidden');
+        wrap.classList.add('is-open');
+        if (trigger) trigger.setAttribute('aria-expanded', 'true');
+        const active = menu.querySelector('.custom-select-option.is-selected');
+        if (active && typeof active.scrollIntoView === 'function') {
+          active.scrollIntoView({ block: 'nearest' });
+        }
+      } else {
+        menu.classList.add('hidden');
+        wrap.classList.remove('is-open');
+        if (trigger) trigger.setAttribute('aria-expanded', 'false');
+      }
+    }
+
+    function applyCustomSelectValue(id, val) {
+      const entry = customSelectStore.get(id);
+      if (!entry) return;
+
+      entry.value = String(val);
+      syncCustomSelect(id, val);
+
+      const wrap = document.getElementById(id);
+      const menu = document.getElementById(`${id}-menu`);
+      const trigger = wrap ? wrap.querySelector('.custom-select-trigger') : null;
+      if (menu) menu.classList.add('hidden');
+      if (wrap) wrap.classList.remove('is-open');
+      if (trigger) {
+        trigger.setAttribute('aria-expanded', 'false');
+        trigger.focus();
+      }
+
+      if (typeof entry.onChange === 'function') {
+        entry.onChange(String(val));
+      }
+    }
+
+    // イベント委譲でカスタムドロップダウンの開閉・選択・キーボード操作を処理
+    document.addEventListener('click', (event) => {
+      const optionBtn = event.target.closest('.custom-select-option');
+      if (optionBtn) {
+        event.stopPropagation();
+        const selectId = optionBtn.dataset.selectId;
+        const val = optionBtn.dataset.value;
+        applyCustomSelectValue(selectId, val);
+        return;
+      }
+
+      const triggerBtn = event.target.closest('.custom-select-trigger');
+      if (triggerBtn) {
+        event.stopPropagation();
+        const selectId = triggerBtn.dataset.selectId;
+        toggleCustomSelect(selectId);
+        return;
+      }
+
+      if (!event.target.closest('.custom-select')) {
+        closeAllCustomSelects();
+      }
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeAllCustomSelects();
+        return;
+      }
+
+      const triggerBtn = event.target.closest('.custom-select-trigger');
+      if (triggerBtn && (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === ' ')) {
+        const selectId = triggerBtn.dataset.selectId;
+        const menu = document.getElementById(`${selectId}-menu`);
+        if (menu && menu.classList.contains('hidden')) {
+          event.preventDefault();
+          toggleCustomSelect(selectId);
+        }
+      }
+    });
+
+    /**
+     * =====================================================================
+     * モード切替（簡易版 / 高度版）
+     * =====================================================================
+     */
+    function switchMode(mode) {
+      closeAllCustomSelects();
+      appState.mode = mode === 'simple' ? 'simple' : 'advanced';
+
+      const isSimple = appState.mode === 'simple';
+      const btnSimple = document.getElementById('btn-mode-simple');
+      const btnAdvanced = document.getElementById('btn-mode-advanced');
+      const secSimple = document.getElementById('section-simple');
+      const secAdvanced = document.getElementById('section-advanced');
+
+      btnSimple.classList.toggle('is-active', isSimple);
+      btnAdvanced.classList.toggle('is-active', !isSimple);
+      btnSimple.setAttribute('aria-selected', isSimple ? 'true' : 'false');
+      btnAdvanced.setAttribute('aria-selected', !isSimple ? 'true' : 'false');
+
+      secSimple.classList.toggle('hidden', !isSimple);
+      secAdvanced.classList.toggle('hidden', isSimple);
+
+      if (isSimple) {
+        renderSimpleMode();
+      } else {
+        renderAdvancedMode();
+      }
+    }
+
+    /**
+     * =====================================================================
+     * 簡易版ロジック＆描画
+     * =====================================================================
+     */
+    function updateSimpleCalc() {
+      const selfInput = document.getElementById('simple-input-self');
+      const oppInput = document.getElementById('simple-input-opp');
+
+      const clampedSelf = clampNonNegative(selfInput.value);
+      const clampedOpp = clampNonNegative(oppInput.value);
+
+      if (String(selfInput.value) !== '' && parseFloat(selfInput.value) < 0) {
+        selfInput.value = '0';
+      }
+      if (String(oppInput.value) !== '' && parseFloat(oppInput.value) < 0) {
+        oppInput.value = '0';
+      }
+
+      appState.simple.selfSub = clampedSelf;
+      appState.simple.oppIgnore = clampedOpp;
+      renderSimpleMode();
+    }
+
+    function toggleSimpleCombo(checked) {
+      appState.simple.combo = Boolean(checked);
+      renderSimpleMode();
+    }
+
+    function renderSimpleMode() {
+      const baseProb = calcProbabilityPct(appState.simple.selfSub, appState.simple.oppIgnore);
+      document.getElementById('simple-out-prob').textContent = formatPct(baseProb);
+
+      const decayWrap = document.getElementById('simple-decay-wrap');
+      decayWrap.classList.toggle('hidden', !appState.simple.combo);
+
+      if (appState.simple.combo) {
+        const hit1 = calcComboHitProb(baseProb, 1);
+        const hit2 = calcComboHitProb(baseProb, 2);
+        const hit3 = calcComboHitProb(baseProb, 3);
+        document.getElementById('simple-out-hit1').textContent = formatPct(hit1);
+        document.getElementById('simple-out-hit2').textContent = formatPct(hit2);
+        document.getElementById('simple-out-hit3').textContent = formatPct(hit3);
+      }
+    }
+
+    /**
+     * =====================================================================
+     * 神器計算（Lv.1〜Lv.20）
+     * =====================================================================
+     */
+    function getCrystalRatePct(lv) {
+      return 105 + 5 * (clampLv(lv) - 1);
+    }
+
+    function getArmorRatePct(lv) {
+      return 65 + 5 * (clampLv(lv) - 1);
+    }
+
+    function getBeastmanScaleBonusPct(lv) {
+      const clamped = clampLv(lv);
+      if (clamped <= 13) {
+        return 12.0 + 0.5 * (clamped - 1);
+      }
+      return 18.0 + 1.0 * (clamped - 13);
+    }
+
+    function getAncientElixirComboBonusPct(lv) {
+      return 10.0 + 1.0 * (clampLv(lv) - 1);
+    }
+
+    function getWindSlashPct(lv) {
+      const clamped = clampLv(lv);
+      return Math.min(25.2, 10.0 + 0.8 * (clamped - 1));
+    }
+
+    function getOwlPerStackPct(lv) {
+      const clamped = clampLv(lv);
+      if (clamped <= 18) {
+        return 3.0 + 0.1 * (clamped - 1);
+      }
+      if (clamped === 19) {
+        return 4.8;
+      }
+      return 5.0;
+    }
+
+    function findHighestSubstatKey(statValues) {
+      let bestKey = STATS_LIST[0].key;
+      let bestVal = -Infinity;
+      STATS_LIST.forEach((s) => {
+        const val = clampNonNegative(statValues[s.key]);
+        if (val > bestVal) {
+          bestVal = val;
+          bestKey = s.key;
+        }
+      });
+      return bestKey;
+    }
+
+    function computeSelfArtifact(slot, currentSelfMap = null) {
+      const lv = clampLv(slot.level);
+      const target = slot.targetStat || 'crit';
+      const swordVal = clampNonNegative(slot.swordStat);
+      const shieldVal = clampNonNegative(slot.shieldStat);
+      const owlStack = clampStack(slot.owlStack);
+
+      switch (slot.artifactId) {
+        case 'dark_crystal': {
+          const ratePct = getCrystalRatePct(lv);
+          const addVal = swordVal * (ratePct / 100);
+          return {
+            badgeText: `${statLabelByKey(target)} ${formatSigned(addVal)} (${ratePct}%)`,
+            summaryText: `闇の結晶 Lv.${lv}（倍率 ${ratePct}%）：剣のステータス ${swordVal.toFixed(2)}% × ${(ratePct / 100).toFixed(2)} = ${formatSigned(addVal)} を「${statLabelByKey(target)}」に加算`,
+            statAdd: { [target]: addVal },
+            hasOwl: false,
+            owlPerStack: 0,
+            convertsCounterToCombo: false,
+          };
+        }
+        case 'guardsman_armor': {
+          const ratePct = getArmorRatePct(lv);
+          const addVal = shieldVal * (ratePct / 100);
+          return {
+            badgeText: `${statLabelByKey(target)} ${formatSigned(addVal)} (${ratePct}%)`,
+            summaryText: `近衛兵の鎧 Lv.${lv}（倍率 ${ratePct}%）：盾のステータス ${shieldVal.toFixed(2)}% × ${(ratePct / 100).toFixed(2)} = ${formatSigned(addVal)} を「${statLabelByKey(target)}」に加算`,
+            statAdd: { [target]: addVal },
+            hasOwl: false,
+            owlPerStack: 0,
+            convertsCounterToCombo: false,
+          };
+        }
+        case 'beastman_scale': {
+          const bonusPct = getBeastmanScaleBonusPct(lv);
+          const highestKey = findHighestSubstatKey(currentSelfMap || appState.rows);
+          const highestLabel = statLabelByKey(highestKey);
+          return {
+            badgeText: `最高ステ(${highestLabel}) +${bonusPct.toFixed(2)}%`,
+            summaryText: `獣人の鱗 Lv.${lv}：現在の最高サブステ「${highestLabel}」に +${bonusPct.toFixed(2)}% を加算（Lv.1〜13: 12%+0.5%/Lv、Lv.14〜20: 18%+1.0%/Lv）`,
+            statAdd: { [highestKey]: bonusPct },
+            hasOwl: false,
+            owlPerStack: 0,
+            convertsCounterToCombo: false,
+          };
+        }
+        case 'ancient_elixir': {
+          const comboBonus = getAncientElixirComboBonusPct(lv);
+          return {
+            badgeText: `反撃→連撃転換 + 連撃 ${formatSigned(comboBonus)}`,
+            summaryText: `古の秘薬 Lv.${lv}：反撃を連撃に転換し、連撃に +${comboBonus.toFixed(2)}% を加算（Lv.1=+10.0%、1Lvごとに+1.0%、Lv.20=+29.0%）`,
+            statAdd: { combo: comboBonus },
+            hasOwl: false,
+            owlPerStack: 0,
+            convertsCounterToCombo: true,
+          };
+        }
+        case 'adventurer_cape': {
+          return {
+            badgeText: `Lv.${lv}（計算式調整中）`,
+            summaryText: `冒険王のマント Lv.${lv}：スロット選択・表示確認用`,
+            statAdd: {},
+            hasOwl: false,
+            owlPerStack: 0,
+            convertsCounterToCombo: false,
+          };
+        }
+        case 'wind_slash': {
+          const slashVal = getWindSlashPct(lv);
+          return {
+            badgeText: `風斬り ${slashVal.toFixed(1)}% (Lv.${lv})`,
+            summaryText: `風斬り Lv.${lv}：Lv.1で10.0%、1Lvごとに+0.8%（最大Lv.20で25.2%）→ 基準値 ${slashVal.toFixed(1)}%`,
+            statAdd: {},
+            hasOwl: false,
+            owlPerStack: 0,
+            convertsCounterToCombo: false,
+          };
+        }
+        case 'owl_carving': {
+          const perStack = getOwlPerStackPct(lv);
+          const selectedAdd = perStack * owlStack;
+          return {
+            badgeText: `吸血 ${formatSigned(selectedAdd)} (${owlStack}スタック / ${perStack.toFixed(1)}%/個)`,
+            summaryText: `梟の彫刻 Lv.${lv}（1スタック ${perStack.toFixed(1)}%）：${owlStack}スタック選択中（吸血 +${selectedAdd.toFixed(2)}%加算・吸血行に0〜5スタック確率表示）`,
+            statAdd: { vampire: selectedAdd },
+            hasOwl: true,
+            owlPerStack: perStack,
+            convertsCounterToCombo: false,
+          };
+        }
+        case 'none':
+        default:
+          return {
+            badgeText: '効果なし',
+            summaryText: '神器が選択されていません。',
+            statAdd: {},
+            hasOwl: false,
+            owlPerStack: 0,
+            convertsCounterToCombo: false,
+          };
+      }
+    }
+
+    function computeOpponentArtifact(slot) {
+      const lv = clampLv(slot.level);
+      const target = slot.targetStat || 'crit';
+      const swordVal = clampNonNegative(slot.swordStat);
+      const shieldVal = clampNonNegative(slot.shieldStat);
+
+      switch (slot.artifactId) {
+        case 'dark_crystal': {
+          const ratePct = getCrystalRatePct(lv);
+          const addVal = swordVal * (ratePct / 100);
+          return {
+            badgeText: `${ignoreLabelByKey(target)} ${formatSigned(addVal)} (${ratePct}%)`,
+            summaryText: `闇の結晶 Lv.${lv}（倍率 ${ratePct}%）：剣のステータス ${swordVal.toFixed(2)}% × ${(ratePct / 100).toFixed(2)} = ${formatSigned(addVal)} を「${ignoreLabelByKey(target)}」に加算`,
+            ignoreAdd: { [target]: addVal },
+            hasThornCrown: false,
+          };
+        }
+        case 'guardsman_armor': {
+          const ratePct = getArmorRatePct(lv);
+          const addVal = shieldVal * (ratePct / 100);
+          return {
+            badgeText: `${ignoreLabelByKey(target)} ${formatSigned(addVal)} (${ratePct}%)`,
+            summaryText: `近衛兵の鎧 Lv.${lv}（倍率 ${ratePct}%）：盾のステータス ${shieldVal.toFixed(2)}% × ${(ratePct / 100).toFixed(2)} = ${formatSigned(addVal)} を「${ignoreLabelByKey(target)}」に加算`,
+            ignoreAdd: { [target]: addVal },
+            hasThornCrown: false,
+          };
+        }
+        case 'perocan': {
+          const bonus = 6.0 + 0.5 * (lv - 1);
+          return {
+            badgeText: `会心・連撃・目眩無視 +${bonus.toFixed(2)}%`,
+            summaryText: `ペロキャン Lv.${lv}：会心無視・連撃無視・目眩無視にそれぞれ +${bonus.toFixed(2)}% を加算`,
+            ignoreAdd: {
+              crit: bonus,
+              combo: bonus,
+              daze: bonus,
+            },
+            hasThornCrown: false,
+          };
+        }
+        case 'thorn_crown': {
+          const bonus = 15.0 + 1.0 * (lv - 1);
+          return {
+            badgeText: `全6無視 +${bonus.toFixed(2)}% → 合計÷6均等配当`,
+            summaryText: `茨の冠 Lv.${lv}：全6無視ステに +${bonus.toFixed(2)}% ずつ加算後、6種合計÷6で各無視ステに均等配当`,
+            ignoreAdd: {
+              vampire: bonus,
+              counter: bonus,
+              combo: bonus,
+              evade: bonus,
+              crit: bonus,
+              daze: bonus,
+            },
+            hasThornCrown: true,
+          };
+        }
+        case 'none':
+        default:
+          return {
+            badgeText: '効果なし',
+            summaryText: '相手の神器が選択されていません。',
+            ignoreAdd: {},
+            hasThornCrown: false,
+          };
+      }
+    }
+
+    /**
+     * 6行全体の合計サブステ・合計無視ステ・内訳を計算
+     */
+    function calculateMatrixData() {
+      const baseSelf = {};
+      const baseOpp = {};
+      const selfBonusSum = {};
+      const oppPreCrownSum = {};
+      const selfLines = {};
+      const oppLines = {};
+
+      let hasOwl = false;
+      let owlPerStack = 0;
+      let hasThornCrown = false;
+      let convertCounterToCombo = false;
+
+      STATS_LIST.forEach((s) => {
+        baseSelf[s.key] = clampNonNegative(appState.rows[s.key].selfSub);
+        baseOpp[s.key] = clampNonNegative(appState.rows[s.key].oppIgnore);
+        selfBonusSum[s.key] = 0;
+        oppPreCrownSum[s.key] = baseOpp[s.key];
+        selfLines[s.key] = [];
+        oppLines[s.key] = [];
+      });
+
+      appState.selfSlots.forEach((slot, idx) => {
+        const eff = computeSelfArtifact(slot, baseSelf);
+        if (eff.hasOwl) {
+          hasOwl = true;
+          owlPerStack = Math.max(owlPerStack, eff.owlPerStack);
+        }
+        if (eff.convertsCounterToCombo) {
+          convertCounterToCombo = true;
+        }
+        STATS_LIST.forEach((s) => {
+          const addVal = Number.isFinite(eff.statAdd[s.key]) ? eff.statAdd[s.key] : 0;
+          if (addVal !== 0) {
+            selfBonusSum[s.key] += addVal;
+            selfLines[s.key].push(
+              `自分枠${idx + 1}(${artifactNameById(SELF_ARTIFACTS, slot.artifactId)}): ${formatSigned(addVal)}`
+            );
+          }
+        });
+      });
+
+      appState.oppSlots.forEach((slot, idx) => {
+        const eff = computeOpponentArtifact(slot);
+        if (eff.hasThornCrown) {
+          hasThornCrown = true;
+        }
+        STATS_LIST.forEach((s) => {
+          const addVal = Number.isFinite(eff.ignoreAdd[s.key]) ? eff.ignoreAdd[s.key] : 0;
+          if (addVal !== 0) {
+            oppPreCrownSum[s.key] += addVal;
+            oppLines[s.key].push(
+              `相手枠${idx + 1}(${artifactNameById(OPP_ARTIFACTS, slot.artifactId)}): ${formatSigned(addVal)}`
+            );
+          }
+        });
+      });
+
+      const totalSelf = {};
+      STATS_LIST.forEach((s) => {
+        totalSelf[s.key] = clampNonNegative(baseSelf[s.key] + selfBonusSum[s.key]);
+      });
+
+      if (convertCounterToCombo) {
+        const convertedCounterVal = totalSelf.counter;
+        totalSelf.counter = 0;
+        totalSelf.combo = clampNonNegative(totalSelf.combo + convertedCounterVal);
+        selfLines.counter.push(`古の秘薬: 反撃 ${convertedCounterVal.toFixed(2)}% を連撃へ転換（0.00%）`);
+        selfLines.combo.push(`古の秘薬: 反撃から +${convertedCounterVal.toFixed(2)}% 転換`);
+      }
+
+      let sixIgnoreTotal = 0;
+      STATS_LIST.forEach((s) => {
+        sixIgnoreTotal += oppPreCrownSum[s.key];
+      });
+      const sixIgnoreAvg = sixIgnoreTotal / 6;
+
+      const totalOpp = {};
+      STATS_LIST.forEach((s) => {
+        totalOpp[s.key] = hasThornCrown ? sixIgnoreAvg : oppPreCrownSum[s.key];
+      });
+
+      return {
+        baseSelf,
+        baseOpp,
+        selfBonusSum,
+        oppPreCrownSum,
+        selfLines,
+        oppLines,
+        totalSelf,
+        totalOpp,
+        hasOwl,
+        owlPerStack,
+        hasThornCrown,
+        sixIgnoreTotal,
+        sixIgnoreAvg,
+      };
+    }
+
+    /**
+     * =====================================================================
+     * 高度版UIの生成と更新
+     * =====================================================================
+     */
+    function initAdvancedShell() {
+      const tbody = document.getElementById('matrix-tbody');
+      tbody.innerHTML = STATS_LIST.map(
+        (s) => `
+          <tr id="matrix-row-${s.key}">
+            <td class="stat-name-cell">${s.label}</td>
+            <td>
+              <input
+                id="row-self-${s.key}"
+                type="number"
+                step="0.01"
+                min="0"
+                value="${appState.rows[s.key].selfSub}"
+                aria-label="${s.label}の自分のサブステ"
+                class="col-input"
+                oninput="onMatrixSelfInput('${s.key}', this.value)"
+              />
+            </td>
+            <td>
+              <input
+                id="row-opp-${s.key}"
+                type="number"
+                step="0.01"
+                min="0"
+                value="${appState.rows[s.key].oppIgnore}"
+                aria-label="${s.label}の相手の無視ステ"
+                class="col-input"
+                oninput="onMatrixOppInput('${s.key}', this.value)"
+              />
+            </td>
+            <td id="col4-${s.key}"></td>
+            <td id="col5-${s.key}"></td>
+            <td id="col6-${s.key}"></td>
+          </tr>
+        `
+      ).join('');
+
+      buildSlotGroup({
+        containerId: 'self-artifacts-grid',
+        side: 'self',
+        slots: appState.selfSlots,
+        catalog: SELF_ARTIFACTS,
+        targetOptions: SELF_TARGET_OPTIONS,
+      });
+
+      buildSlotGroup({
+        containerId: 'opp-artifacts-grid',
+        side: 'opp',
+        slots: appState.oppSlots,
+        catalog: OPP_ARTIFACTS,
+        targetOptions: OPP_IGNORE_TARGET_OPTIONS,
+      });
+    }
+
+    function buildSlotGroup({ containerId, side, slots, catalog, targetOptions }) {
+      const container = document.getElementById(containerId);
+      const sideLabel = side === 'self' ? '自分の神器' : '相手の神器';
+
+      container.innerHTML = slots
+        .map((slot, idx) => {
+          const artSelectId = `${side}-select-art-${idx}`;
+          const lvSelectId = `${side}-select-lv-${idx}`;
+          const targetSelectId = `${side}-select-target-${idx}`;
+          const owlStackSelectId = `${side}-select-owl-${idx}`;
+
+          registerCustomSelect(
+            artSelectId,
+            catalog.map((c) => ({ value: c.id, label: c.name })),
+            slot.artifactId,
+            (val) => {
+              slot.artifactId = val;
+              refreshSlotCard(side, idx);
+              renderAdvancedMode();
+            }
+          );
+
+          registerCustomSelect(lvSelectId, LEVEL_OPTIONS, slot.level, (val) => {
+            slot.level = clampLv(val);
+            refreshSlotCard(side, idx);
+            renderAdvancedMode();
+          });
+
+          registerCustomSelect(targetSelectId, targetOptions, slot.targetStat, (val) => {
+            slot.targetStat = val;
+            refreshSlotCard(side, idx);
+            renderAdvancedMode();
+          });
+
+          if (side === 'self') {
+            registerCustomSelect(owlStackSelectId, STACK_OPTIONS, slot.owlStack, (val) => {
+              slot.owlStack = clampStack(val);
+              refreshSlotCard(side, idx);
+              renderAdvancedMode();
+            });
+          }
+
+          const isCrystal = slot.artifactId === 'dark_crystal';
+          const isArmor = slot.artifactId === 'guardsman_armor';
+          const isOwl = side === 'self' && slot.artifactId === 'owl_carving';
+          const showGearPanel = isCrystal || isArmor;
+
+          return `
+            <div class="artifact-slot-card">
+              <div class="slot-header-bar">
+                <span class="slot-title">${sideLabel} スロット ${idx + 1}</span>
+                <span id="${side}-slot-lv-${idx}" class="slot-lv-tag">Lv.${slot.level}</span>
+              </div>
+
+              <div class="slot-controls-row">
+                <div class="control-col">
+                  <span class="control-label">神器</span>
+                  ${buildCustomSelectHtml({
+                    id: artSelectId,
+                    ariaLabel: `${sideLabel}スロット${idx + 1}の神器選択`,
+                    options: catalog.map((c) => ({ value: c.id, label: c.name })),
+                    value: slot.artifactId,
+                  })}
+                </div>
+
+                <div class="control-col">
+                  <span class="control-label">レベル (1〜20)</span>
+                  ${buildCustomSelectHtml({
+                    id: lvSelectId,
+                    ariaLabel: `${sideLabel}スロット${idx + 1}のレベル選択`,
+                    options: LEVEL_OPTIONS,
+                    value: String(slot.level),
+                  })}
+                </div>
+              </div>
+
+              <div id="${side}-dynamic-panel-${idx}" class="slot-dynamic-panel ${showGearPanel ? '' : 'hidden'}">
+                <div class="slot-dynamic-grid">
+                  <div id="${side}-sword-wrap-${idx}" class="control-col ${isCrystal ? '' : 'hidden'}">
+                    <label for="${side}-sword-input-${idx}" class="control-label">剣のステータス (%)</label>
+                    <input
+                      id="${side}-sword-input-${idx}"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value="${slot.swordStat}"
+                      oninput="onSlotGearInput('${side}', ${idx}, 'sword', this.value)"
+                    />
+                  </div>
+
+                  <div id="${side}-shield-wrap-${idx}" class="control-col ${isArmor ? '' : 'hidden'}">
+                    <label for="${side}-shield-input-${idx}" class="control-label">盾のステータス (%)</label>
+                    <input
+                      id="${side}-shield-input-${idx}"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value="${slot.shieldStat}"
+                      oninput="onSlotGearInput('${side}', ${idx}, 'shield', this.value)"
+                    />
+                  </div>
+
+                  <div class="control-col">
+                    <span class="control-label">加算先</span>
+                    ${buildCustomSelectHtml({
+                      id: targetSelectId,
+                      ariaLabel: `${sideLabel}スロット${idx + 1}の加算先選択`,
+                      options: targetOptions,
+                      value: slot.targetStat,
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              ${
+                side === 'self'
+                  ? `
+                    <div id="self-owl-panel-${idx}" class="slot-dynamic-panel ${isOwl ? '' : 'hidden'}">
+                      <div class="control-col">
+                        <span class="control-label">梟の彫刻 スタック数 (0〜5)</span>
+                        ${buildCustomSelectHtml({
+                          id: owlStackSelectId,
+                          ariaLabel: `自分スロット${idx + 1}の梟の彫刻スタック選択`,
+                          options: STACK_OPTIONS,
+                          value: String(slot.owlStack),
+                        })}
+                      </div>
+                    </div>
+                  `
+                  : ''
+              }
+
+              <div class="slot-effect-badge">
+                <span>効果</span>
+                <strong id="${side}-slot-badge-${idx}">効果なし</strong>
+              </div>
+
+              <p id="${side}-slot-desc-${idx}" class="slot-detail-text"></p>
+            </div>
+          `;
+        })
+        .join('');
+    }
+
+    function refreshSlotCard(side, idx) {
+      const slots = side === 'self' ? appState.selfSlots : appState.oppSlots;
+      const slot = slots[idx];
+      if (!slot) return;
+
+      document.getElementById(`${side}-slot-lv-${idx}`).textContent = `Lv.${slot.level}`;
+
+      const isCrystal = slot.artifactId === 'dark_crystal';
+      const isArmor = slot.artifactId === 'guardsman_armor';
+      const isOwl = side === 'self' && slot.artifactId === 'owl_carving';
+      const showGearPanel = isCrystal || isArmor;
+
+      document.getElementById(`${side}-dynamic-panel-${idx}`).classList.toggle('hidden', !showGearPanel);
+      document.getElementById(`${side}-sword-wrap-${idx}`).classList.toggle('hidden', !isCrystal);
+      document.getElementById(`${side}-shield-wrap-${idx}`).classList.toggle('hidden', !isArmor);
+
+      if (side === 'self') {
+        const owlPanel = document.getElementById(`self-owl-panel-${idx}`);
+        if (owlPanel) owlPanel.classList.toggle('hidden', !isOwl);
+      }
+
+      const currentSelfMap = {};
+      STATS_LIST.forEach((s) => {
+        currentSelfMap[s.key] = clampNonNegative(appState.rows[s.key].selfSub);
+      });
+
+      const eff =
+        side === 'self'
+          ? computeSelfArtifact(slot, currentSelfMap)
+          : computeOpponentArtifact(slot);
+      document.getElementById(`${side}-slot-badge-${idx}`).textContent = eff.badgeText;
+      document.getElementById(`${side}-slot-desc-${idx}`).textContent = eff.summaryText;
+    }
+
+    function onSlotGearInput(side, idx, kind, rawVal) {
+      const slots = side === 'self' ? appState.selfSlots : appState.oppSlots;
+      const slot = slots[idx];
+      if (!slot) return;
+
+      const inputId = `${side}-${kind}-input-${idx}`;
+      const inputEl = document.getElementById(inputId);
+      const clamped = clampNonNegative(rawVal);
+
+      if (inputEl && String(rawVal) !== '' && parseFloat(rawVal) < 0) {
+        inputEl.value = '0';
+      }
+
+      if (kind === 'sword') {
+        slot.swordStat = clamped;
+      } else if (kind === 'shield') {
+        slot.shieldStat = clamped;
+      }
+      refreshSlotCard(side, idx);
+      renderAdvancedMode();
+    }
+
+    function onMatrixSelfInput(statKey, rawVal) {
+      const inputEl = document.getElementById(`row-self-${statKey}`);
+      const clamped = clampNonNegative(rawVal);
+      if (inputEl && String(rawVal) !== '' && parseFloat(rawVal) < 0) {
+        inputEl.value = '0';
+      }
+      appState.rows[statKey].selfSub = clamped;
+      renderAdvancedMode();
+    }
+
+    function onMatrixOppInput(statKey, rawVal) {
+      const inputEl = document.getElementById(`row-opp-${statKey}`);
+      const clamped = clampNonNegative(rawVal);
+      if (inputEl && String(rawVal) !== '' && parseFloat(rawVal) < 0) {
+        inputEl.value = '0';
+      }
+      appState.rows[statKey].oppIgnore = clamped;
+      renderAdvancedMode();
+    }
+
+    function renderAdvancedMode() {
+      const data = calculateMatrixData();
+
+      appState.selfSlots.forEach((_, idx) => refreshSlotCard('self', idx));
+      appState.oppSlots.forEach((_, idx) => refreshSlotCard('opp', idx));
+
+      STATS_LIST.forEach((s) => {
+        const key = s.key;
+        const bSelf = data.baseSelf[key];
+        const sBonus = data.selfBonusSum[key];
+        const tSelf = data.totalSelf[key];
+
+        const bOpp = data.baseOpp[key];
+        const preCrownOpp = data.oppPreCrownSum[key];
+        const tOpp = data.totalOpp[key];
+
+        const selfDetailHtml =
+          data.selfLines[key].length > 0
+            ? data.selfLines[key].map((line) => `<div>・${line}</div>`).join('')
+            : '<div>・自分の神器加算: +0.00%</div>';
+
+        document.getElementById(`col4-${key}`).innerHTML = `
+          <div class="total-stat-val">${tSelf.toFixed(2)}%</div>
+          <div class="calc-equation">入力 ${bSelf.toFixed(2)}% + 神器 ${sBonus.toFixed(2)}% = ${tSelf.toFixed(2)}%</div>
+          <div class="calc-lines">${selfDetailHtml}</div>
+        `;
+
+        const oppDetailHtml =
+          data.oppLines[key].length > 0
+            ? data.oppLines[key].map((line) => `<div>・${line}</div>`).join('')
+            : '<div>・相手の神器加算: +0.00%</div>';
+
+        const crownBannerHtml = data.hasThornCrown
+          ? `
+            <div class="crown-avg-banner">
+              茨の冠 均等配当: 6種合計 ${data.sixIgnoreTotal.toFixed(2)}% ÷ 6 = ${data.sixIgnoreAvg.toFixed(2)}%
+            </div>
+          `
+          : '';
+
+        const oppEquationText = data.hasThornCrown
+          ? `6種合計 ${data.sixIgnoreTotal.toFixed(2)}% ÷ 6 = ${tOpp.toFixed(2)}%`
+          : `入力 ${bOpp.toFixed(2)}% + 神器 ${(preCrownOpp - bOpp).toFixed(2)}% = ${tOpp.toFixed(2)}%`;
+
+        document.getElementById(`col5-${key}`).innerHTML = `
+          <div class="total-stat-val is-ignore">${tOpp.toFixed(2)}%</div>
+          <div class="calc-equation">${oppEquationText}</div>
+          <div class="calc-lines">${oppDetailHtml}</div>
+          ${crownBannerHtml}
+        `;
+
+        const col6 = document.getElementById(`col6-${key}`);
+        if (key === 'vampire' && data.hasOwl) {
+          const stackRows = [0, 1, 2, 3, 4, 5]
+            .map((stk) => {
+              const subWithOwl = clampNonNegative(tSelf + data.owlPerStack * stk);
+              const prob = calcProbabilityPct(subWithOwl, tOpp);
+              return `<div>${stk}スタック (${subWithOwl.toFixed(2)}%): <span>${formatPct(prob)}</span></div>`;
+            })
+            .join('');
+
+          col6.innerHTML = `
+            <div class="prob-primary">梟の彫刻 0〜5スタック</div>
+            <div class="owl-stack-list">${stackRows}</div>
+          `;
+        } else {
+          const prob = calcProbabilityPct(tSelf, tOpp);
+          let comboHtml = '';
+          if (key === 'combo') {
+            const h1 = calcComboHitProb(prob, 1);
+            const h2 = calcComboHitProb(prob, 2);
+            const h3 = calcComboHitProb(prob, 3);
+            comboHtml = `
+              <div class="combo-sub-lines">
+                <div>1回目: ${formatPct(h1)} / 2回目: ${formatPct(h2)}</div>
+                <div>3回目: ${formatPct(h3)}</div>
+              </div>
+            `;
+          }
+
+          col6.innerHTML = `
+            <div class="prob-primary">${formatPct(prob)}</div>
+            ${comboHtml}
+          `;
+        }
+      });
+    }
+
+    /**
+     * =====================================================================
+     * 初期化
+     * =====================================================================
+     */
+    window.addEventListener('DOMContentLoaded', () => {
+      try {
+        initAdvancedShell();
+        renderSimpleMode();
+        renderAdvancedMode();
+        switchMode(appState.mode);
+      } catch (err) {
+        console.error('初期化エラー:', err);
+      }
+    });
+  </script>
+</body>
+</html>
