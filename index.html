@@ -324,6 +324,28 @@
       box-shadow: 0 2px 16px rgba(89, 243, 252, 0.3);
     }
 
+    .reset-all-btn {
+      margin-top: 0.7rem;
+      width: 100%;
+      min-height: 40px;
+      border: 1px solid var(--border-strong);
+      border-radius: 0.65rem;
+      padding: 0.5rem 0.9rem;
+      font-family: inherit;
+      font-size: 0.84rem;
+      font-weight: 700;
+      background-color: var(--bg-surface);
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+    }
+
+    .reset-all-btn:hover {
+      border-color: var(--warning-text);
+      background-color: rgba(255, 123, 114, 0.12);
+      color: var(--warning-text);
+    }
+
     /* =====================================================================
        簡易版（Simple Mode）
        ===================================================================== */
@@ -836,6 +858,15 @@
           高度版
         </button>
       </div>
+
+      <button
+        id="btn-reset-all"
+        type="button"
+        class="reset-all-btn"
+        onclick="resetAllState()"
+      >
+        全部をリセット
+      </button>
     </header>
 
     <!-- ===================================================================== -->
@@ -982,8 +1013,9 @@
         <p>• <strong>近衛兵の鎧</strong>：倍率 <code>65% + 5% × (Lv - 1)</code> を掛けた <code>盾のステータス × 倍率</code> を選択サブステ（相手は「〜無視」）に加算します。</p>
         <p>• <strong>獣人の鱗</strong>：最も高いサブステに Lv.1〜13 は <code>12.0% + 0.5% × (Lv - 1)</code>、Lv.14〜20 は <code>18.0% + 1.0% × (Lv - 13)</code> を加算します。</p>
         <p>• <strong>古の秘薬</strong>：反撃を連撃に転換し、さらに連撃に <code>+(10.0 + 1.0 × (Lv - 1))%</code> を加算します。</p>
-        <p>• <strong>風斬り</strong>：Lv.1で <code>10.0%</code>、1レベルごとに <code>+0.8%</code>（最大Lv.20で <code>25.2%</code>）。</p>
-        <p>• <strong>梟の彫刻（自分）</strong>：スタック値（Lv.1〜18: <code>3.0% + 0.1% × (Lv - 1)</code>、Lv.19: <code>4.8%</code>、Lv.20: <code>5.0%</code>）をスロットで0〜5スタック選択でき、選択スタック分の値を吸血に加算しつつ吸血行に0〜5スタックの発生確率を表示します。</p>
+        <p>• <strong>冒険王のマント</strong>：回避と吸血にそれぞれ <code>+(6.0 + 1.0 × (Lv - 1))%</code>（Lv.1=+6.0%、Lv.20=+25.0%）を加算します。</p>
+        <p>• <strong>風斬り</strong>：Lv.1で <code>10.0%</code>、1レベルごとに <code>+0.8%</code>（最大Lv.20で <code>25.2%</code>）を連撃と反撃の両方に加算します。</p>
+        <p>• <strong>梟の彫刻（自分）</strong>：スタック値（Lv.1〜18: <code>3.0% + 0.1% × (Lv - 1)</code>、Lv.19: <code>4.8%</code>、Lv.20: <code>5.0%</code>）をもとに、吸血行に0〜5スタックの発生確率を表示します。</p>
         <p>• <strong>ペロキャン（相手）</strong>：会心無視・連撃無視・目眩無視にそれぞれ <code>+(6.0 + 0.5 × (Lv - 1))%</code> を加算します。</p>
         <p>• <strong>茨の冠（相手）</strong>：全6無視ステに <code>+(15.0 + 1.0 × (Lv - 1))%</code>（Lv.1=+15%、Lv.20=+34%）を加算したうえで、6つの無視ステ合計を6で割った値（<code>6種合計 ÷ 6</code>）を各無視ステに均等配当します。</p>
       </div>
@@ -1389,6 +1421,79 @@
     }
 
     /**
+     * すべての入力値・神器スロットを初期状態にリセット
+     */
+    function resetAllState() {
+      try {
+        closeAllCustomSelects();
+
+        appState.simple.selfSub = 0;
+        appState.simple.oppIgnore = 0;
+        appState.simple.combo = false;
+
+        STATS_LIST.forEach((s) => {
+          appState.rows[s.key].selfSub = 0;
+          appState.rows[s.key].oppIgnore = 0;
+        });
+
+        const defaultSelfTargets = ['crit', 'evade', 'vampire'];
+        appState.selfSlots.forEach((slot, idx) => {
+          slot.artifactId = 'none';
+          slot.level = 1;
+          slot.targetStat = defaultSelfTargets[idx] || 'crit';
+          slot.swordStat = 0;
+          slot.shieldStat = 0;
+          slot.owlStack = 0;
+        });
+
+        const defaultOppTargets = ['crit', 'evade', 'vampire'];
+        appState.oppSlots.forEach((slot, idx) => {
+          slot.artifactId = 'none';
+          slot.level = 1;
+          slot.targetStat = defaultOppTargets[idx] || 'crit';
+          slot.swordStat = 0;
+          slot.shieldStat = 0;
+          slot.owlStack = 0;
+        });
+
+        const simpleSelfInput = document.getElementById('simple-input-self');
+        const simpleOppInput = document.getElementById('simple-input-opp');
+        const simpleComboCheck = document.getElementById('simple-checkbox-combo');
+        if (simpleSelfInput) simpleSelfInput.value = '0';
+        if (simpleOppInput) simpleOppInput.value = '0';
+        if (simpleComboCheck) simpleComboCheck.checked = false;
+
+        STATS_LIST.forEach((s) => {
+          const selfRowInput = document.getElementById(`row-self-${s.key}`);
+          const oppRowInput = document.getElementById(`row-opp-${s.key}`);
+          if (selfRowInput) selfRowInput.value = '0';
+          if (oppRowInput) oppRowInput.value = '0';
+        });
+
+        ['self', 'opp'].forEach((side) => {
+          const slots = side === 'self' ? appState.selfSlots : appState.oppSlots;
+          slots.forEach((slot, idx) => {
+            syncCustomSelect(`${side}-select-art-${idx}`, slot.artifactId);
+            syncCustomSelect(`${side}-select-lv-${idx}`, slot.level);
+            syncCustomSelect(`${side}-select-target-${idx}`, slot.targetStat);
+
+            const swordInput = document.getElementById(`${side}-sword-input-${idx}`);
+            const shieldInput = document.getElementById(`${side}-shield-input-${idx}`);
+            if (swordInput) swordInput.value = '0';
+            if (shieldInput) shieldInput.value = '0';
+
+            refreshSlotCard(side, idx);
+          });
+        });
+
+        renderSimpleMode();
+        renderAdvancedMode();
+      } catch (err) {
+        console.error('リセット処理エラー:', err);
+      }
+    }
+
+    /**
      * =====================================================================
      * 簡易版ロジック＆描画
      * =====================================================================
@@ -1459,6 +1564,10 @@
       return 10.0 + 1.0 * (clampLv(lv) - 1);
     }
 
+    function getAdventurerCapeBonusPct(lv) {
+      return 6.0 + 1.0 * (clampLv(lv) - 1);
+    }
+
     function getWindSlashPct(lv) {
       const clamped = clampLv(lv);
       return Math.min(25.2, 10.0 + 0.8 * (clamped - 1));
@@ -1494,6 +1603,38 @@
       const swordVal = clampNonNegative(slot.swordStat);
       const shieldVal = clampNonNegative(slot.shieldStat);
       const owlStack = clampStack(slot.owlStack);
+      const totalSelfMap = {};
+      STATS_LIST.forEach((s) => {
+        const baseVal = currentSelfMap
+          ? clampNonNegative(currentSelfMap[s.key])
+          : clampNonNegative(appState.rows[s.key].selfSub);
+        totalSelfMap[s.key] = baseVal;
+      });
+      if (currentSelfMap) {
+        appState.selfSlots.forEach((otherSlot) => {
+          if (!otherSlot || otherSlot === slot || otherSlot.artifactId === 'beastman_scale') return;
+          if (otherSlot.artifactId === 'dark_crystal') {
+            const r = getCrystalRatePct(otherSlot.level);
+            const tKey = otherSlot.targetStat || 'crit';
+            totalSelfMap[tKey] = clampNonNegative(totalSelfMap[tKey] + clampNonNegative(otherSlot.swordStat) * (r / 100));
+          } else if (otherSlot.artifactId === 'guardsman_armor') {
+            const r = getArmorRatePct(otherSlot.level);
+            const tKey = otherSlot.targetStat || 'crit';
+            totalSelfMap[tKey] = clampNonNegative(totalSelfMap[tKey] + clampNonNegative(otherSlot.shieldStat) * (r / 100));
+          } else if (otherSlot.artifactId === 'adventurer_cape') {
+            const cBonus = getAdventurerCapeBonusPct(otherSlot.level);
+            totalSelfMap.evade = clampNonNegative(totalSelfMap.evade + cBonus);
+            totalSelfMap.vampire = clampNonNegative(totalSelfMap.vampire + cBonus);
+          } else if (otherSlot.artifactId === 'wind_slash') {
+            const wBonus = getWindSlashPct(otherSlot.level);
+            totalSelfMap.combo = clampNonNegative(totalSelfMap.combo + wBonus);
+            totalSelfMap.counter = clampNonNegative(totalSelfMap.counter + wBonus);
+          } else if (otherSlot.artifactId === 'ancient_elixir') {
+            const eBonus = getAncientElixirComboBonusPct(otherSlot.level);
+            totalSelfMap.combo = clampNonNegative(totalSelfMap.combo + eBonus);
+          }
+        });
+      }
 
       switch (slot.artifactId) {
         case 'dark_crystal': {
@@ -1522,11 +1663,11 @@
         }
         case 'beastman_scale': {
           const bonusPct = getBeastmanScaleBonusPct(lv);
-          const highestKey = findHighestSubstatKey(currentSelfMap || appState.rows);
+          const highestKey = findHighestSubstatKey(totalSelfMap);
           const highestLabel = statLabelByKey(highestKey);
           return {
             badgeText: `最高ステ(${highestLabel}) +${bonusPct.toFixed(2)}%`,
-            summaryText: `獣人の鱗 Lv.${lv}：現在の最高サブステ「${highestLabel}」に +${bonusPct.toFixed(2)}% を加算（Lv.1〜13: 12%+0.5%/Lv、Lv.14〜20: 18%+1.0%/Lv）`,
+            summaryText: `獣人の鱗 Lv.${lv}：現在の合計サブステ最高値「${highestLabel} (${totalSelfMap[highestKey].toFixed(2)}%)」に +${bonusPct.toFixed(2)}% を加算（Lv.1〜13: 12%+0.5%/Lv、Lv.14〜20: 18%+1.0%/Lv）`,
             statAdd: { [highestKey]: bonusPct },
             hasOwl: false,
             owlPerStack: 0,
@@ -1545,10 +1686,14 @@
           };
         }
         case 'adventurer_cape': {
+          const capeBonus = getAdventurerCapeBonusPct(lv);
           return {
-            badgeText: `Lv.${lv}（計算式調整中）`,
-            summaryText: `冒険王のマント Lv.${lv}：スロット選択・表示確認用`,
-            statAdd: {},
+            badgeText: `回避・吸血 ${formatSigned(capeBonus)}`,
+            summaryText: `冒険王のマント Lv.${lv}：回避と吸血にそれぞれ +${capeBonus.toFixed(2)}% を加算（Lv.1=+6.0%、1Lvごとに+1.0%、Lv.20=+25.0%）`,
+            statAdd: {
+              evade: capeBonus,
+              vampire: capeBonus,
+            },
             hasOwl: false,
             owlPerStack: 0,
             convertsCounterToCombo: false,
@@ -1557,9 +1702,12 @@
         case 'wind_slash': {
           const slashVal = getWindSlashPct(lv);
           return {
-            badgeText: `風斬り ${slashVal.toFixed(1)}% (Lv.${lv})`,
-            summaryText: `風斬り Lv.${lv}：Lv.1で10.0%、1Lvごとに+0.8%（最大Lv.20で25.2%）→ 基準値 ${slashVal.toFixed(1)}%`,
-            statAdd: {},
+            badgeText: `連撃・反撃 +${slashVal.toFixed(1)}% (Lv.${lv})`,
+            summaryText: `風斬り Lv.${lv}：Lv.1で10.0%、1Lvごとに+0.8%（最大Lv.20で25.2%）→ 連撃と反撃にそれぞれ +${slashVal.toFixed(2)}% を加算`,
+            statAdd: {
+              combo: slashVal,
+              counter: slashVal,
+            },
             hasOwl: false,
             owlPerStack: 0,
             convertsCounterToCombo: false,
@@ -1567,11 +1715,10 @@
         }
         case 'owl_carving': {
           const perStack = getOwlPerStackPct(lv);
-          const selectedAdd = perStack * owlStack;
           return {
-            badgeText: `吸血 ${formatSigned(selectedAdd)} (${owlStack}スタック / ${perStack.toFixed(1)}%/個)`,
-            summaryText: `梟の彫刻 Lv.${lv}（1スタック ${perStack.toFixed(1)}%）：${owlStack}スタック選択中（吸血 +${selectedAdd.toFixed(2)}%加算・吸血行に0〜5スタック確率表示）`,
-            statAdd: { vampire: selectedAdd },
+            badgeText: `吸血行 0〜5スタック (${perStack.toFixed(1)}%/個)`,
+            summaryText: `梟の彫刻 Lv.${lv}（1スタック ${perStack.toFixed(1)}%）：吸血行に0〜5スタックの発生確率を表示`,
+            statAdd: {},
             hasOwl: true,
             owlPerStack: perStack,
             convertsCounterToCombo: false,
@@ -1682,8 +1829,34 @@
         oppLines[s.key] = [];
       });
 
+      const nonScaleSelfMap = { ...baseSelf };
+      appState.selfSlots.forEach((slot) => {
+        if (!slot || slot.artifactId === 'beastman_scale') return;
+        const lv = clampLv(slot.level);
+        if (slot.artifactId === 'dark_crystal') {
+          const ratePct = getCrystalRatePct(lv);
+          const tKey = slot.targetStat || 'crit';
+          nonScaleSelfMap[tKey] = clampNonNegative(nonScaleSelfMap[tKey] + clampNonNegative(slot.swordStat) * (ratePct / 100));
+        } else if (slot.artifactId === 'guardsman_armor') {
+          const ratePct = getArmorRatePct(lv);
+          const tKey = slot.targetStat || 'crit';
+          nonScaleSelfMap[tKey] = clampNonNegative(nonScaleSelfMap[tKey] + clampNonNegative(slot.shieldStat) * (ratePct / 100));
+        } else if (slot.artifactId === 'adventurer_cape') {
+          const cBonus = getAdventurerCapeBonusPct(lv);
+          nonScaleSelfMap.evade = clampNonNegative(nonScaleSelfMap.evade + cBonus);
+          nonScaleSelfMap.vampire = clampNonNegative(nonScaleSelfMap.vampire + cBonus);
+        } else if (slot.artifactId === 'wind_slash') {
+          const wBonus = getWindSlashPct(lv);
+          nonScaleSelfMap.combo = clampNonNegative(nonScaleSelfMap.combo + wBonus);
+          nonScaleSelfMap.counter = clampNonNegative(nonScaleSelfMap.counter + wBonus);
+        } else if (slot.artifactId === 'ancient_elixir') {
+          const eBonus = getAncientElixirComboBonusPct(slot.level);
+          nonScaleSelfMap.combo = clampNonNegative(nonScaleSelfMap.combo + eBonus);
+        }
+      });
+
       appState.selfSlots.forEach((slot, idx) => {
-        const eff = computeSelfArtifact(slot, baseSelf);
+        const eff = computeSelfArtifact(slot, slot.artifactId === 'beastman_scale' ? nonScaleSelfMap : baseSelf);
         if (eff.hasOwl) {
           hasOwl = true;
           owlPerStack = Math.max(owlPerStack, eff.owlPerStack);
@@ -1827,7 +2000,6 @@
           const artSelectId = `${side}-select-art-${idx}`;
           const lvSelectId = `${side}-select-lv-${idx}`;
           const targetSelectId = `${side}-select-target-${idx}`;
-          const owlStackSelectId = `${side}-select-owl-${idx}`;
 
           registerCustomSelect(
             artSelectId,
@@ -1852,17 +2024,8 @@
             renderAdvancedMode();
           });
 
-          if (side === 'self') {
-            registerCustomSelect(owlStackSelectId, STACK_OPTIONS, slot.owlStack, (val) => {
-              slot.owlStack = clampStack(val);
-              refreshSlotCard(side, idx);
-              renderAdvancedMode();
-            });
-          }
-
           const isCrystal = slot.artifactId === 'dark_crystal';
           const isArmor = slot.artifactId === 'guardsman_armor';
-          const isOwl = side === 'self' && slot.artifactId === 'owl_carving';
           const showGearPanel = isCrystal || isArmor;
 
           return `
@@ -1932,24 +2095,6 @@
                 </div>
               </div>
 
-              ${
-                side === 'self'
-                  ? `
-                    <div id="self-owl-panel-${idx}" class="slot-dynamic-panel ${isOwl ? '' : 'hidden'}">
-                      <div class="control-col">
-                        <span class="control-label">梟の彫刻 スタック数 (0〜5)</span>
-                        ${buildCustomSelectHtml({
-                          id: owlStackSelectId,
-                          ariaLabel: `自分スロット${idx + 1}の梟の彫刻スタック選択`,
-                          options: STACK_OPTIONS,
-                          value: String(slot.owlStack),
-                        })}
-                      </div>
-                    </div>
-                  `
-                  : ''
-              }
-
               <div class="slot-effect-badge">
                 <span>効果</span>
                 <strong id="${side}-slot-badge-${idx}">効果なし</strong>
@@ -1971,17 +2116,11 @@
 
       const isCrystal = slot.artifactId === 'dark_crystal';
       const isArmor = slot.artifactId === 'guardsman_armor';
-      const isOwl = side === 'self' && slot.artifactId === 'owl_carving';
       const showGearPanel = isCrystal || isArmor;
 
       document.getElementById(`${side}-dynamic-panel-${idx}`).classList.toggle('hidden', !showGearPanel);
       document.getElementById(`${side}-sword-wrap-${idx}`).classList.toggle('hidden', !isCrystal);
       document.getElementById(`${side}-shield-wrap-${idx}`).classList.toggle('hidden', !isArmor);
-
-      if (side === 'self') {
-        const owlPanel = document.getElementById(`self-owl-panel-${idx}`);
-        if (owlPanel) owlPanel.classList.toggle('hidden', !isOwl);
-      }
 
       const currentSelfMap = {};
       STATS_LIST.forEach((s) => {
